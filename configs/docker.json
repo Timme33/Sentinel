@@ -1,0 +1,31 @@
+{
+  "prometheus": {
+    "base_url": "http://prometheus:9090",
+    "timeout_seconds": 10.0
+  },
+  "detection": {
+    "poll_interval_seconds": 60,
+    "missing_polls_to_resolve": 2,
+    "lookback": "5m",
+    "services": [
+      "ad",
+      "cart",
+      "checkout",
+      "currency",
+      "email",
+      "flagd",
+      "frontend",
+      "frontend-proxy",
+      "image-provider",
+      "payment",
+      "product-catalog",
+      "quote",
+      "recommendation",
+      "shipping"
+    ]
+  },
+  "incidents": {
+    "database_path": "/app/data/sentinel.db"
+  }
+}
+

@@ -1,0 +1,22 @@
+services:
+  prometheus:
+    volumes:
+      - ../Sentinel/integration/otel-demo/prometheus/prometheus-config.yaml:/etc/prometheus/prometheus-config.yaml:ro
+      - ../Sentinel/integration/otel-demo/prometheus/rules:/etc/prometheus/sentinel-rules:ro
+
+  sentinel:
+    build:
+      context: ../Sentinel
+    container_name: sentinel
+    command: ["--config", "/etc/sentinel/config.json", "detect"]
+    depends_on:
+      prometheus:
+        condition: service_started
+    restart: unless-stopped
+    volumes:
+      - ../Sentinel/configs/docker.json:/etc/sentinel/config.json:ro
+      - sentinel-data:/app/data
+
+volumes:
+  sentinel-data:
+

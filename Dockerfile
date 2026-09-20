@@ -1,0 +1,13 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+COPY pyproject.toml README.md ./
+COPY src ./src
+RUN pip install --no-cache-dir .
+
+RUN mkdir -p /app/data
+
+ENTRYPOINT ["sentinel"]
+CMD ["--config", "/etc/sentinel/config.json", "detect"]
+
