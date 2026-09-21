@@ -1,0 +1,54 @@
+# Sentinel-specific enrichment for the OpenTelemetry Demo.
+#
+# service.name on a CLIENT span identifies the caller, not the destination.
+# This bounded mapping adds a stable dependency identity before span_metrics
+# converts spans into Prometheus metrics. Raw addresses and URLs are not used as
+# dimensions, preventing dynamic endpoints from exploding cardinality.
+
+processors:
+  transform/sentinel_dependencies:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        conditions:
+          - span.kind == SPAN_KIND_CLIENT
+        statements:
+          - set(attributes["sentinel.dependency.name"], "ad") where IsMatch(name, "^oteldemo\\.AdService/")
+          - set(attributes["sentinel.dependency.name"], "cart") where IsMatch(name, "^oteldemo\\.CartService/")
+          - set(attributes["sentinel.dependency.name"], "checkout") where IsMatch(name, "^oteldemo\\.CheckoutService/")
+          - set(attributes["sentinel.dependency.name"], "currency") where IsMatch(name, "^oteldemo\\.CurrencyService/")
+          - set(attributes["sentinel.dependency.name"], "payment") where IsMatch(name, "^oteldemo\\.PaymentService/")
+          - set(attributes["sentinel.dependency.name"], "product-catalog") where IsMatch(name, "^oteldemo\\.ProductCatalogService/")
+          - set(attributes["sentinel.dependency.name"], "recommendation") where IsMatch(name, "^oteldemo\\.RecommendationService/")
+          - set(attributes["sentinel.dependency.name"], "flagd") where IsMatch(name, "^(flagd\\.evaluation\\.|resolve)")
+          - set(attributes["sentinel.dependency.name"], "valkey-cart") where IsMatch(name, "^valkey-cart(:|$)")
+          - set(attributes["sentinel.dependency.name"], "astronomy-db") where name == "astronomy-db"
+          - set(attributes["sentinel.dependency.name"], "email") where attributes["server.address"] == "email"
+          - set(attributes["sentinel.dependency.name"], "quote") where attributes["server.address"] == "quote"
+          - set(attributes["sentinel.dependency.name"], "shipping") where attributes["server.address"] == "shipping"
+          - set(attributes["sentinel.dependency.name"], "frontend") where name == "router frontend egress"
+          - set(attributes["sentinel.dependency.name"], "image-provider") where name == "router image-provider egress"
+          - set(attributes["sentinel.dependency.name"], "jaeger") where name == "router jaeger egress"
+          - set(attributes["sentinel.dependency.name"], "grafana") where name == "router grafana egress"
+          - set(attributes["sentinel.dependency.name"], "load-generator") where name == "router loadgen egress"
+          - set(attributes["sentinel.dependency.name"], "opamp-server") where name == "router opamp egress"
+          - set(attributes["sentinel.dependency.name"], "otel-collector") where name == "router opentelemetry_collector_http egress"
+          - set(attributes["sentinel.dependency.name"], "telemetry-docs") where name == "router telemetry-docs egress"
+
+connectors:
+  span_metrics:
+    dimensions:
+      - name: sentinel.dependency.name
+    aggregation_cardinality_limit: 10000
+
+service:
+  pipelines:
+    traces:
+      processors:
+        - resource_detection
+        - memory_limiter
+        - transform/sanitize_spans
+        - gen_ai_normalizer
+        - transform/redact_sensitive_data
+        - redaction
+        - transform/sentinel_dependencies

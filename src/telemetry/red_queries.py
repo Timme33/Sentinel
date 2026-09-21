@@ -23,12 +23,12 @@ def build_red_queries(services: tuple[str, ...], lookback: str = "5m") -> RedQue
         f'service_name=~"^({service_pattern})$"'
     )
     total_rate = (
-        "sum by (service_name) ("
+        "sum by (service_name, span_name) ("
         f"rate(traces_span_metrics_calls_total{{{base_matchers}}}[{lookback}])"
         ")"
     )
     error_rate = (
-        "sum by (service_name) ("
+        "sum by (service_name, span_name) ("
         "rate(traces_span_metrics_calls_total{"
         f'{base_matchers},status_code="STATUS_CODE_ERROR"'
         f"}}[{lookback}])"
@@ -36,11 +36,11 @@ def build_red_queries(services: tuple[str, ...], lookback: str = "5m") -> RedQue
     )
     error_ratio = (
         f"(({error_rate}) / ({total_rate})) "
-        f"or on (service_name) (0 * ({total_rate}))"
+        f"or on (service_name, span_name) (0 * ({total_rate}))"
     )
     p95_latency = (
         "histogram_quantile(0.95, "
-        "sum by (le, service_name) ("
+        "sum by (le, service_name, span_name) ("
         "rate(traces_span_metrics_duration_milliseconds_bucket{"
         f"{base_matchers}"
         f"}}[{lookback}])"

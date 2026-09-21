@@ -1,77 +1,177 @@
 groups:
-  - name: sentinel-safety-alerts
+  - name: sentinel-server-operation-safety-alerts
     interval: 1m
     rules:
-      - alert: SentinelExtremeErrorRatio
-        expr: sentinel:service_error_ratio > 0.50
+      - alert: SentinelServerOperationExtremeErrorRatio
+        expr: |
+          (sentinel:server_operation_error_ratio > 0.50)
+          and on (service_name, span_name)
+          (sentinel:server_operation_request_rate >= 0.01)
         for: 2m
         labels:
           severity: critical
           sentinel: "true"
+          sentinel_scope: server_operation
           sentinel_signal: error_ratio
           sentinel_method: extreme_threshold
         annotations:
-          summary: "{{ $labels.service_name }} has an extreme error ratio"
-          description: "The five-minute server error ratio is {{ $value }}."
+          summary: "{{ $labels.service_name }} operation {{ $labels.span_name }} has an extreme error ratio"
+          description: "The five-minute server-operation error ratio is {{ $value }}."
 
-      - alert: SentinelExtremeP95Latency
-        expr: sentinel:service_p95_latency_ms > 5000
+      - alert: SentinelServerOperationExtremeP95Latency
+        expr: |
+          (sentinel:server_operation_p95_latency_ms > 5000)
+          and on (service_name, span_name)
+          (sentinel:server_operation_request_rate >= 0.01)
         for: 2m
         labels:
           severity: critical
           sentinel: "true"
+          sentinel_scope: server_operation
           sentinel_signal: p95_latency_ms
           sentinel_method: extreme_threshold
         annotations:
-          summary: "{{ $labels.service_name }} has extreme p95 latency"
-          description: "The five-minute p95 server latency is {{ $value }} ms."
+          summary: "{{ $labels.service_name }} operation {{ $labels.span_name }} has extreme p95 latency"
+          description: "The five-minute server-operation p95 latency is {{ $value }} ms."
 
-  - name: sentinel-rolling-alerts
+  - name: sentinel-server-operation-rolling-alerts
     interval: 1m
     rules:
-      - alert: SentinelRollingErrorRatio
+      - alert: SentinelServerOperationRollingErrorRatio
         expr: |
           (
-            sentinel:service_error_ratio
+            sentinel:server_operation_error_ratio
               >
             clamp_min(
-              avg_over_time(sentinel:service_error_ratio[1h])
-                + 4 * stddev_over_time(sentinel:service_error_ratio[1h]),
+              avg_over_time(sentinel:server_operation_error_ratio[1h])
+                + 4 * stddev_over_time(sentinel:server_operation_error_ratio[1h]),
               0.05
             )
           )
-          and on (service_name)
-          count_over_time(sentinel:service_error_ratio[1h]) >= 30
+          and on (service_name, span_name)
+          (count_over_time(sentinel:server_operation_error_ratio[1h]) >= 30)
+          and on (service_name, span_name)
+          (sentinel:server_operation_request_rate >= 0.01)
         for: 2m
         labels:
           severity: warning
           sentinel: "true"
+          sentinel_scope: server_operation
           sentinel_signal: error_ratio
           sentinel_method: rolling_mean_stddev
         annotations:
-          summary: "{{ $labels.service_name }} error ratio left its rolling baseline"
-          description: "The current error ratio is {{ $value }}."
+          summary: "{{ $labels.service_name }} operation {{ $labels.span_name }} left its error baseline"
+          description: "The current server-operation error ratio is {{ $value }}."
 
-      - alert: SentinelRollingP95Latency
+      - alert: SentinelServerOperationRollingP95Latency
         expr: |
           (
-            sentinel:service_p95_latency_ms
+            sentinel:server_operation_p95_latency_ms
               >
             clamp_min(
-              avg_over_time(sentinel:service_p95_latency_ms[1h])
-                + 4 * stddev_over_time(sentinel:service_p95_latency_ms[1h]),
+              avg_over_time(sentinel:server_operation_p95_latency_ms[1h])
+                + 4 * stddev_over_time(sentinel:server_operation_p95_latency_ms[1h]),
               1000
             )
           )
-          and on (service_name)
-          count_over_time(sentinel:service_p95_latency_ms[1h]) >= 30
+          and on (service_name, span_name)
+          (count_over_time(sentinel:server_operation_p95_latency_ms[1h]) >= 30)
+          and on (service_name, span_name)
+          (sentinel:server_operation_request_rate >= 0.01)
         for: 2m
         labels:
           severity: warning
           sentinel: "true"
+          sentinel_scope: server_operation
           sentinel_signal: p95_latency_ms
           sentinel_method: rolling_mean_stddev
         annotations:
-          summary: "{{ $labels.service_name }} p95 latency left its rolling baseline"
-          description: "The current p95 server latency is {{ $value }} ms."
+          summary: "{{ $labels.service_name }} operation {{ $labels.span_name }} left its latency baseline"
+          description: "The current server-operation p95 latency is {{ $value }} ms."
 
+  - name: sentinel-client-dependency-operation-alerts
+    interval: 1m
+    rules:
+      - alert: SentinelClientDependencyExtremeErrorRatio
+        expr: |
+          (sentinel:client_dependency_operation_error_ratio > 0.50)
+          and on (service_name, sentinel_dependency_name, span_name)
+          (sentinel:client_dependency_operation_request_rate >= 0.01)
+        for: 2m
+        labels:
+          severity: critical
+          sentinel: "true"
+          sentinel_scope: client_dependency_operation
+          sentinel_signal: error_ratio
+          sentinel_method: extreme_threshold
+        annotations:
+          summary: "{{ $labels.service_name }} cannot reliably call {{ $labels.sentinel_dependency_name }}"
+          description: "Client operation {{ $labels.span_name }} has a five-minute error ratio of {{ $value }}."
+
+      - alert: SentinelClientDependencyExtremeP95Latency
+        expr: |
+          (sentinel:client_dependency_operation_p95_latency_ms > 5000)
+          and on (service_name, sentinel_dependency_name, span_name)
+          (sentinel:client_dependency_operation_request_rate >= 0.01)
+        for: 2m
+        labels:
+          severity: critical
+          sentinel: "true"
+          sentinel_scope: client_dependency_operation
+          sentinel_signal: p95_latency_ms
+          sentinel_method: extreme_threshold
+        annotations:
+          summary: "{{ $labels.service_name }} sees extreme latency from {{ $labels.sentinel_dependency_name }}"
+          description: "Client operation {{ $labels.span_name }} has a five-minute p95 latency of {{ $value }} ms."
+
+      - alert: SentinelClientDependencyRollingErrorRatio
+        expr: |
+          (
+            sentinel:client_dependency_operation_error_ratio
+              >
+            clamp_min(
+              avg_over_time(sentinel:client_dependency_operation_error_ratio[1h])
+                + 4 * stddev_over_time(sentinel:client_dependency_operation_error_ratio[1h]),
+              0.05
+            )
+          )
+          and on (service_name, sentinel_dependency_name, span_name)
+          (count_over_time(sentinel:client_dependency_operation_error_ratio[1h]) >= 30)
+          and on (service_name, sentinel_dependency_name, span_name)
+          (sentinel:client_dependency_operation_request_rate >= 0.01)
+        for: 2m
+        labels:
+          severity: warning
+          sentinel: "true"
+          sentinel_scope: client_dependency_operation
+          sentinel_signal: error_ratio
+          sentinel_method: rolling_mean_stddev
+        annotations:
+          summary: "{{ $labels.service_name }} to {{ $labels.sentinel_dependency_name }} left its error baseline"
+          description: "Client operation {{ $labels.span_name }} currently has an error ratio of {{ $value }}."
+
+      - alert: SentinelClientDependencyRollingP95Latency
+        expr: |
+          (
+            sentinel:client_dependency_operation_p95_latency_ms
+              >
+            clamp_min(
+              avg_over_time(sentinel:client_dependency_operation_p95_latency_ms[1h])
+                + 4 * stddev_over_time(sentinel:client_dependency_operation_p95_latency_ms[1h]),
+              1000
+            )
+          )
+          and on (service_name, sentinel_dependency_name, span_name)
+          (count_over_time(sentinel:client_dependency_operation_p95_latency_ms[1h]) >= 30)
+          and on (service_name, sentinel_dependency_name, span_name)
+          (sentinel:client_dependency_operation_request_rate >= 0.01)
+        for: 2m
+        labels:
+          severity: warning
+          sentinel: "true"
+          sentinel_scope: client_dependency_operation
+          sentinel_signal: p95_latency_ms
+          sentinel_method: rolling_mean_stddev
+        annotations:
+          summary: "{{ $labels.service_name }} to {{ $labels.sentinel_dependency_name }} left its latency baseline"
+          description: "Client operation {{ $labels.span_name }} currently has a p95 latency of {{ $value }} ms."

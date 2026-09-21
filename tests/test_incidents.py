@@ -18,6 +18,7 @@ def signal(
     name: str,
     observed_at: datetime,
     severity: str = "warning",
+    labels: dict[str, str] | None = None,
 ) -> DetectionSignal:
     return DetectionSignal(
         fingerprint=fingerprint,
@@ -29,6 +30,7 @@ def signal(
         alert_name=f"Test{name}",
         severity=severity,
         value=1.0,
+        labels=labels or {},
     )
 
 
@@ -61,6 +63,32 @@ class IncidentStoreTests(unittest.TestCase):
         self.assertEqual(incidents[0].service, "payment")
         self.assertEqual(incidents[0].severity, "critical")
         self.assertEqual(len(incidents[0].triggers), 2)
+
+    def test_trigger_preserves_operation_labels(self) -> None:
+        self.store.reconcile(
+            DetectionSnapshot(
+                observed_at=START,
+                signals=(
+                    signal(
+                        "empty-cart",
+                        "cart",
+                        "error_ratio",
+                        START,
+                        labels={
+                            "sentinel_scope": "server_operation",
+                            "span_name": "POST /oteldemo.CartService/EmptyCart",
+                        },
+                    ),
+                ),
+            ),
+            missing_polls_to_resolve=2,
+        )
+
+        trigger = self.store.list_incidents(status="open")[0].triggers[0]
+        self.assertEqual(
+            trigger.labels["span_name"],
+            "POST /oteldemo.CartService/EmptyCart",
+        )
 
     def test_keeps_different_services_separate(self) -> None:
         result = self.store.reconcile(
@@ -130,4 +158,3 @@ class IncidentStoreTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

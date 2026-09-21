@@ -102,12 +102,14 @@ def _check(prometheus: PrometheusAdapter, config: SentinelConfig) -> None:
         )
     queries = build_red_queries(config.detection.services, config.detection.lookback)
     observations = RedMetricsReader(prometheus, queries).snapshot()
+    observed_services = {observation.service for observation in observations}
     _print_json(
         {
             "prometheus": "ready",
             "base_url": config.prometheus.base_url,
             "configured_services": len(config.detection.services),
-            "observed_services": len(observations),
+            "observed_services": len(observed_services),
+            "observed_operations": len(observations),
             "database_path": str(config.incidents.database_path),
         }
     )

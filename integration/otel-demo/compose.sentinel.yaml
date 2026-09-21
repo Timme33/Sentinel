@@ -1,4 +1,15 @@
 services:
+  otel-collector:
+    command:
+      - "--config=/etc/otelcol-config.yml"
+      - "--config=/etc/otelcol-config-full.yml"
+      - "--config=/etc/otelcol-config-observability.yml"
+      - "--config=/etc/otelcol-config-extras.yml"
+      - "--config=/etc/otelcol-config-sentinel.yml"
+      - "--feature-gates=service.profilesSupport"
+    volumes:
+      - ../Sentinel/integration/otel-demo/otelcol-sentinel.yml:/etc/otelcol-config-sentinel.yml:ro
+
   prometheus:
     volumes:
       - ../Sentinel/integration/otel-demo/prometheus/prometheus-config.yaml:/etc/prometheus/prometheus-config.yaml:ro
@@ -19,4 +30,3 @@ services:
 
 volumes:
   sentinel-data:
-

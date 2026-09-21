@@ -28,10 +28,16 @@ class PrometheusAlertSource:
 
 
 def _to_signal(alert: PrometheusAlert, observed_at: datetime) -> DetectionSignal:
-    service = alert.labels.get("service_name", "unknown")
+    scope = alert.labels.get("sentinel_scope", "server_operation")
+    caller = alert.labels.get("service_name", "unknown")
+    dependency = alert.labels.get("sentinel_dependency_name")
+    service = dependency if scope == "client_dependency_operation" and dependency else caller
+    operation = alert.labels.get("span_name", "unknown")
     signal = alert.labels.get("sentinel_signal", "unknown")
     method = alert.labels.get("sentinel_method", "prometheus_alert")
-    fingerprint_source = "\x00".join((alert.name, service, signal, method))
+    fingerprint_source = "\x00".join(
+        (alert.name, scope, caller, dependency or "", operation, signal, method)
+    )
     fingerprint = hashlib.sha256(fingerprint_source.encode("utf-8")).hexdigest()[:20]
     return DetectionSignal(
         fingerprint=fingerprint,

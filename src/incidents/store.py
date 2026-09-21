@@ -20,7 +20,7 @@ class ReconcileResult:
 
 
 class SQLiteIncidentStore:
-    """Durable service-level incident grouping and trigger state."""
+    """Durable affected-service incident grouping and trigger state."""
 
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
@@ -299,6 +299,8 @@ class SQLiteIncidentStore:
                 latest_value=trigger["latest_value"],
                 active=bool(trigger["active"]),
                 missing_polls=trigger["missing_polls"],
+                labels=json.loads(trigger["labels_json"]),
+                annotations=json.loads(trigger["annotations_json"]),
             )
             for trigger in trigger_rows
         )

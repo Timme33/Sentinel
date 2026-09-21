@@ -21,6 +21,7 @@ class MetricSeries:
 class RedObservation:
     timestamp: datetime
     service: str
+    operation: str
     request_rate: Optional[float]
     error_ratio: Optional[float]
     p95_latency_ms: Optional[float]
@@ -70,6 +71,8 @@ class IncidentTrigger:
     latest_value: Optional[float]
     active: bool
     missing_polls: int
+    labels: Mapping[str, str] = field(default_factory=dict)
+    annotations: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

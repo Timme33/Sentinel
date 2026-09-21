@@ -17,6 +17,8 @@ class RedQueryTests(unittest.TestCase):
             self.assertIn("payment|frontend-proxy", expression)
         self.assertIn('status_code="STATUS_CODE_ERROR"', queries.error_ratio)
         self.assertIn("histogram_quantile(0.95", queries.p95_latency_ms)
+        self.assertIn("service_name, span_name", queries.request_rate)
+        self.assertIn("le, service_name, span_name", queries.p95_latency_ms)
 
     def test_rejects_invalid_lookback(self) -> None:
         with self.assertRaises(ValueError):
@@ -25,4 +27,3 @@ class RedQueryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

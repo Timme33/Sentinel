@@ -2,19 +2,21 @@ groups:
   - name: sentinel-red-signals
     interval: 1m
     rules:
-      - record: sentinel:service_request_rate
+      # Server RED stays at operation scope. Service views can be derived later
+      # without discarding the span_name that exposes localized failures.
+      - record: sentinel:server_operation_request_rate
         expr: |
-          sum by (service_name) (
+          sum by (service_name, span_name) (
             rate(traces_span_metrics_calls_total{
               span_kind="SPAN_KIND_SERVER",
               service_name=~"^(ad|cart|checkout|currency|email|flagd|frontend|frontend-proxy|image-provider|payment|product-catalog|quote|recommendation|shipping)$"
             }[5m])
           )
 
-      - record: sentinel:service_error_ratio
+      - record: sentinel:server_operation_error_ratio
         expr: |
           (
-            sum by (service_name) (
+            sum by (service_name, span_name) (
               rate(traces_span_metrics_calls_total{
                 span_kind="SPAN_KIND_SERVER",
                 status_code="STATUS_CODE_ERROR",
@@ -22,16 +24,16 @@ groups:
               }[5m])
             )
             /
-            sum by (service_name) (
+            sum by (service_name, span_name) (
               rate(traces_span_metrics_calls_total{
                 span_kind="SPAN_KIND_SERVER",
                 service_name=~"^(ad|cart|checkout|currency|email|flagd|frontend|frontend-proxy|image-provider|payment|product-catalog|quote|recommendation|shipping)$"
               }[5m])
             )
           )
-          or on (service_name)
+          or on (service_name, span_name)
           (
-            0 * sum by (service_name) (
+            0 * sum by (service_name, span_name) (
               rate(traces_span_metrics_calls_total{
                 span_kind="SPAN_KIND_SERVER",
                 service_name=~"^(ad|cart|checkout|currency|email|flagd|frontend|frontend-proxy|image-provider|payment|product-catalog|quote|recommendation|shipping)$"
@@ -39,11 +41,11 @@ groups:
             )
           )
 
-      - record: sentinel:service_p95_latency_ms
+      - record: sentinel:server_operation_p95_latency_ms
         expr: |
           histogram_quantile(
             0.95,
-            sum by (le, service_name) (
+            sum by (le, service_name, span_name) (
               rate(traces_span_metrics_duration_milliseconds_bucket{
                 span_kind="SPAN_KIND_SERVER",
                 service_name=~"^(ad|cart|checkout|currency|email|flagd|frontend|frontend-proxy|image-provider|payment|product-catalog|quote|recommendation|shipping)$"
@@ -51,3 +53,53 @@ groups:
             )
           )
 
+      # Client RED describes what a caller experienced when using a known
+      # dependency. The Collector overlay supplies a bounded dependency label.
+      - record: sentinel:client_dependency_operation_request_rate
+        expr: |
+          sum by (service_name, sentinel_dependency_name, span_name) (
+            rate(traces_span_metrics_calls_total{
+              span_kind="SPAN_KIND_CLIENT",
+              sentinel_dependency_name!=""
+            }[5m])
+          )
+
+      - record: sentinel:client_dependency_operation_error_ratio
+        expr: |
+          (
+            sum by (service_name, sentinel_dependency_name, span_name) (
+              rate(traces_span_metrics_calls_total{
+                span_kind="SPAN_KIND_CLIENT",
+                sentinel_dependency_name!="",
+                status_code="STATUS_CODE_ERROR"
+              }[5m])
+            )
+            /
+            sum by (service_name, sentinel_dependency_name, span_name) (
+              rate(traces_span_metrics_calls_total{
+                span_kind="SPAN_KIND_CLIENT",
+                sentinel_dependency_name!=""
+              }[5m])
+            )
+          )
+          or on (service_name, sentinel_dependency_name, span_name)
+          (
+            0 * sum by (service_name, sentinel_dependency_name, span_name) (
+              rate(traces_span_metrics_calls_total{
+                span_kind="SPAN_KIND_CLIENT",
+                sentinel_dependency_name!=""
+              }[5m])
+            )
+          )
+
+      - record: sentinel:client_dependency_operation_p95_latency_ms
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, service_name, sentinel_dependency_name, span_name) (
+              rate(traces_span_metrics_duration_milliseconds_bucket{
+                span_kind="SPAN_KIND_CLIENT",
+                sentinel_dependency_name!=""
+              }[5m])
+            )
+          )
