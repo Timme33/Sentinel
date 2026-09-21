@@ -52,10 +52,10 @@
   <text x="310" y="466" text-anchor="middle" class="group-title">Prometheus</text>
   <rect x="145" y="495" width="330" height="48" rx="4" class="node-box"/>
   <text x="310" y="526" text-anchor="middle" class="node">OTLP Write Receiver</text>
-  <path d="M310 543 L310 565" class="edge"/>
+  <path d="M145 519 L112 519 L112 589 L145 589" class="edge"/>
   <rect x="145" y="565" width="330" height="48" rx="4" class="node-box"/>
   <text x="310" y="596" text-anchor="middle" class="node">Prometheus TSDB</text>
-  <path d="M310 613 L310 635" class="edge"/>
+  <path d="M475 589 L508 589 L508 659 L475 659" class="edge"/>
   <rect x="145" y="635" width="330" height="48" rx="4" class="node-box"/>
   <text x="310" y="666" text-anchor="middle" class="node">Recording + Alert Rules</text>
 
@@ -64,10 +64,10 @@
   <text x="900" y="466" text-anchor="middle" class="group-title">Jaeger</text>
   <rect x="735" y="495" width="330" height="48" rx="4" class="node-box"/>
   <text x="900" y="526" text-anchor="middle" class="node">Jaeger Collector</text>
-  <path d="M900 543 L900 565" class="edge"/>
+  <path d="M735 519 L702 519 L702 589 L735 589" class="edge"/>
   <rect x="735" y="565" width="330" height="48" rx="4" class="node-box"/>
   <text x="900" y="596" text-anchor="middle" class="node">Trace Store</text>
-  <path d="M900 613 L900 635" class="edge"/>
+  <path d="M1065 589 L1098 589 L1098 659 L1065 659" class="edge"/>
   <rect x="735" y="635" width="330" height="48" rx="4" class="node-box"/>
   <text x="900" y="666" text-anchor="middle" class="node">Query API</text>
 
@@ -76,10 +76,10 @@
   <text x="1490" y="466" text-anchor="middle" class="group-title">OpenSearch</text>
   <rect x="1325" y="495" width="330" height="48" rx="4" class="node-box"/>
   <text x="1490" y="526" text-anchor="middle" class="node">HTTP Receiver</text>
-  <path d="M1490 543 L1490 565" class="edge"/>
+  <path d="M1325 519 L1292 519 L1292 589 L1325 589" class="edge"/>
   <rect x="1325" y="565" width="330" height="48" rx="4" class="node-box"/>
   <text x="1490" y="596" text-anchor="middle" class="node">Log Index</text>
-  <path d="M1490 613 L1490 635" class="edge"/>
+  <path d="M1655 589 L1688 589 L1688 659 L1655 659" class="edge"/>
   <rect x="1325" y="635" width="330" height="48" rx="4" class="node-box"/>
   <text x="1490" y="666" text-anchor="middle" class="node">Search API</text>
 
@@ -96,14 +96,14 @@
   <text x="228" y="974" text-anchor="middle" class="node">Alert Poller</text>
   <path d="M320 956 L365 956" class="edge"/>
   <rect x="365" y="925" width="185" height="62" rx="4" class="node-box"/>
-  <text x="458" y="951" text-anchor="middle" class="node">Signal</text>
-  <text x="458" y="974" text-anchor="middle" class="node">Normalizer</text>
+  <text x="458" y="951" text-anchor="middle" class="node">Alert Record</text>
+  <text x="458" y="974" text-anchor="middle" class="node">Builder</text>
   <path d="M550 956 L595 956" class="edge"/>
   <rect x="595" y="925" width="185" height="62" rx="4" class="node-box"/>
-  <text x="688" y="951" text-anchor="middle" class="node">Incident</text>
-  <text x="688" y="974" text-anchor="middle" class="node">Grouping</text>
+  <text x="688" y="951" text-anchor="middle" class="node">Alert-to-Incident</text>
+  <text x="688" y="974" text-anchor="middle" class="node">Grouper</text>
 
-  <path d="M688 987 L688 1030 L572 1030" class="edge"/>
+  <path d="M688 987 L688 1000 L500 1000 L500 1030" class="edge"/>
   <rect x="345" y="1030" width="310" height="58" rx="4" class="node-box"/>
   <text x="500" y="1066" text-anchor="middle" class="node">Investigation Job Scheduler</text>
 
@@ -115,28 +115,30 @@
   <rect x="875" y="845" width="830" height="455" fill="#8296c4" stroke="#d0d8e9" stroke-width="1.5"/>
   <text x="905" y="883" class="group-title-dark">Investigation</text>
 
-  <rect x="915" y="925" width="185" height="62" rx="4" class="node-box"/>
-  <text x="1008" y="951" text-anchor="middle" class="node">Investigation</text>
-  <text x="1008" y="974" text-anchor="middle" class="node">Worker</text>
-  <path d="M1100 956 L1145 956" class="edge"/>
-  <rect x="1145" y="925" width="205" height="62" rx="4" class="node-box"/>
-  <text x="1248" y="951" text-anchor="middle" class="node">Initial Evidence</text>
-  <text x="1248" y="974" text-anchor="middle" class="node">Builder</text>
-  <path d="M1350 956 L1395 956" class="edge"/>
+  <rect x="1115" y="925" width="235" height="62" rx="4" class="node-box"/>
+  <text x="1233" y="951" text-anchor="middle" class="node">Jaeger + OpenSearch</text>
+  <text x="1233" y="974" text-anchor="middle" class="node">Read-only Adapters</text>
   <rect x="1395" y="925" width="200" height="62" rx="4" class="node-box"/>
-  <text x="1495" y="951" text-anchor="middle" class="node">Codex</text>
-  <text x="1495" y="974" text-anchor="middle" class="node">Reasoning Agent</text>
+  <text x="1495" y="951" text-anchor="middle" class="node">FastMCP</text>
+  <text x="1495" y="974" text-anchor="middle" class="node">Tool Server</text>
+  <path d="M1395 956 L1350 956" class="edge"/>
 
-  <path d="M1495 987 L1495 1030" class="edge"/>
+  <rect x="915" y="1030" width="185" height="62" rx="4" class="node-box"/>
+  <text x="1008" y="1056" text-anchor="middle" class="node">Investigation</text>
+  <text x="1008" y="1079" text-anchor="middle" class="node">Worker</text>
+  <path d="M1100 1061 L1145 1061" class="edge"/>
+  <rect x="1145" y="1030" width="205" height="62" rx="4" class="node-box"/>
+  <text x="1248" y="1056" text-anchor="middle" class="node">Initial Evidence</text>
+  <text x="1248" y="1079" text-anchor="middle" class="node">Builder</text>
+  <path d="M1350 1061 L1395 1061" class="edge"/>
   <rect x="1395" y="1030" width="200" height="62" rx="4" class="node-box"/>
-  <text x="1495" y="1056" text-anchor="middle" class="node">FastMCP</text>
-  <text x="1495" y="1079" text-anchor="middle" class="node">Tool Server</text>
-  <path d="M1395 1061 L1350 1061" class="edge"/>
-  <rect x="1115" y="1030" width="235" height="62" rx="4" class="node-box"/>
-  <text x="1233" y="1056" text-anchor="middle" class="node">Jaeger + OpenSearch</text>
-  <text x="1233" y="1079" text-anchor="middle" class="node">Read-only Adapters</text>
+  <text x="1495" y="1056" text-anchor="middle" class="node">Codex</text>
+  <text x="1495" y="1079" text-anchor="middle" class="node">Reasoning Agent</text>
 
-  <path d="M1595 956 L1640 956 L1640 1160 L1450 1160" class="edge"/>
+  <path d="M1248 987 L1248 1030" class="edge"/>
+  <path d="M1495 1030 L1495 987" class="edge"/>
+
+  <path d="M1595 1061 L1640 1061 L1640 1160 L1450 1160" class="edge"/>
   <rect x="1205" y="1131" width="245" height="58" rx="4" class="node-box"/>
   <text x="1328" y="1167" text-anchor="middle" class="node">Report Validator</text>
   <path d="M1328 1189 L1328 1222" class="edge"/>
@@ -153,16 +155,14 @@
   <text x="328" y="735" class="small">firing alerts</text>
   <path d="M900 683 L900 725 L1195 725 L1195 925" class="edge"/>
   <text x="925" y="717" class="small">traces</text>
-  <path d="M1490 683 L1490 725 L1295 725 L1295 925" class="edge"/>
+  <path d="M1490 683 L1490 725 L1270 725 L1270 925" class="edge"/>
   <text x="1420" y="717" class="small">logs</text>
 
-  <path d="M655 1059 L850 1059 L850 956 L915 956" class="edge"/>
-  <text x="815" y="1048" class="small">job</text>
+  <path d="M655 1059 L915 1059" class="edge"/>
+  <rect x="700" y="1043" width="108" height="29" rx="3" fill="#3e4244" stroke="#e1e5e9" stroke-width="1"/>
+  <text x="754" y="1063" text-anchor="middle" class="small">async job</text>
   <path d="M500 1180 L500 1260" class="edge"/>
-  <path d="M1008 987 L1008 1260" class="edge"/>
+  <path d="M1008 1092 L1008 1260" class="edge"/>
   <path d="M1328 1274 L1328 1292 L1095 1292" class="edge"/>
 
-  <!-- On-demand tool queries back to telemetry stores -->
-  <path d="M1195 1030 L1195 1010 L900 1010 L900 683" class="edge-dashed"/>
-  <path d="M1270 1030 L1270 1005 L1490 1005 L1490 683" class="edge-dashed"/>
 </svg>
