@@ -26,6 +26,27 @@
   },
   "incidents": {
     "database_path": "data/sentinel.db"
+  },
+  "jaeger": {
+    "base_url": "http://localhost:16686/jaeger/ui/api",
+    "timeout_seconds": 10.0
+  },
+  "opensearch": {
+    "base_url": "http://localhost:9200",
+    "index_pattern": "otel-logs-*",
+    "timeout_seconds": 10.0
+  },
+  "investigation": {
+    "quiet_period_seconds": 120,
+    "max_wait_seconds": 300,
+    "worker_poll_interval_seconds": 5,
+    "lookback_seconds": 300,
+    "lookahead_seconds": 60,
+    "trace_limit": 8,
+    "log_limit": 30
+  },
+  "codex": {
+    "model": "gpt-5.6-sol",
+    "reasoning_effort": "high"
   }
 }
-

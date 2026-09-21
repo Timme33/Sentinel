@@ -17,6 +17,8 @@ class ReconcileResult:
     opened: tuple[str, ...] = ()
     updated: tuple[str, ...] = ()
     resolved: tuple[str, ...] = ()
+    new_trigger_incidents: tuple[str, ...] = ()
+    observed_at: Optional[datetime] = None
 
 
 class SQLiteIncidentStore:
@@ -29,6 +31,7 @@ class SQLiteIncidentStore:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         try:
             with self._connect() as connection:
+                connection.execute("PRAGMA journal_mode = WAL")
                 connection.executescript(
                     """
                     CREATE TABLE IF NOT EXISTS incidents (
@@ -79,6 +82,7 @@ class SQLiteIncidentStore:
         opened: list[str] = []
         updated: set[str] = set()
         resolved: list[str] = []
+        new_trigger_incidents: set[str] = set()
         active_fingerprints = {signal.fingerprint for signal in snapshot.signals}
 
         try:
@@ -108,7 +112,8 @@ class SQLiteIncidentStore:
                     else:
                         updated.add(incident_id)
 
-                    self._upsert_trigger(connection, incident_id, signal)
+                    if self._upsert_trigger(connection, incident_id, signal):
+                        new_trigger_incidents.add(incident_id)
                     connection.execute(
                         """
                         UPDATE incidents
@@ -167,6 +172,8 @@ class SQLiteIncidentStore:
             opened=tuple(opened),
             updated=tuple(sorted(updated - set(opened))),
             resolved=tuple(resolved),
+            new_trigger_incidents=tuple(sorted(new_trigger_incidents)),
+            observed_at=snapshot.observed_at,
         )
 
     def list_incidents(
@@ -205,6 +212,7 @@ class SQLiteIncidentStore:
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.path)
         connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA busy_timeout = 5000")
         connection.execute("PRAGMA foreign_keys = ON")
         return connection
 
@@ -216,7 +224,14 @@ class SQLiteIncidentStore:
         return {row["service"]: row["id"] for row in rows}
 
     @staticmethod
-    def _upsert_trigger(connection, incident_id, signal) -> None:
+    def _upsert_trigger(connection, incident_id, signal) -> bool:
+        is_new = connection.execute(
+            """
+            SELECT 1 FROM incident_triggers
+            WHERE incident_id = ? AND fingerprint = ?
+            """,
+            (incident_id, signal.fingerprint),
+        ).fetchone() is None
         connection.execute(
             """
             INSERT INTO incident_triggers (
@@ -248,6 +263,7 @@ class SQLiteIncidentStore:
                 json.dumps(dict(signal.annotations), sort_keys=True),
             ),
         )
+        return is_new
 
     @staticmethod
     def _incident_severity(connection, incident_id: str) -> str:

@@ -18,6 +18,7 @@ services:
   sentinel:
     build:
       context: ../Sentinel
+    image: sentinel-aiops:local
     container_name: sentinel
     command: ["--config", "/etc/sentinel/config.json", "detect"]
     depends_on:
@@ -28,5 +29,22 @@ services:
       - ../Sentinel/configs/docker.json:/etc/sentinel/config.json:ro
       - sentinel-data:/app/data
 
+  sentinel-investigator:
+    image: sentinel-aiops:local
+    container_name: sentinel-investigator
+    command: ["--config", "/etc/sentinel/config.json", "investigations", "worker"]
+    profiles: ["investigation"]
+    depends_on:
+      jaeger:
+        condition: service_started
+      opensearch:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ../Sentinel/configs/docker.json:/etc/sentinel/config.json:ro
+      - sentinel-data:/app/data
+      - sentinel-codex-home:/root/.codex
+
 volumes:
   sentinel-data:
+  sentinel-codex-home:

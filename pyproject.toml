@@ -6,8 +6,11 @@ build-backend = "setuptools.build_meta"
 name = "sentinel-aiops"
 version = "0.1.0"
 description = "Prometheus-backed incident detection for distributed systems"
-requires-python = ">=3.9"
-dependencies = []
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.19,<2",
+    "openai-codex",
+]
 
 [project.scripts]
 sentinel = "sentinel.cli:main"
@@ -19,5 +22,9 @@ packages = [
     "sentinel.detection",
     "sentinel.domain",
     "sentinel.incidents",
+    "sentinel.investigation",
     "sentinel.telemetry",
 ]
+
+[tool.setuptools.package-data]
+"sentinel.investigation" = ["prompts/*.md"]

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
+from importlib.resources import files
 import json
 import logging
 from pathlib import Path
@@ -14,6 +15,13 @@ from sentinel.detection.prometheus_alerts import PrometheusAlertSource
 from sentinel.detection.runner import DetectionRunner
 from sentinel.domain.errors import SentinelError
 from sentinel.incidents.store import SQLiteIncidentStore
+from sentinel.investigation.codex_agent import CodexInvestigationAgent
+from sentinel.investigation.context_builder import InvestigationContextBuilder
+from sentinel.investigation.evidence_service import EvidenceService
+from sentinel.investigation.repository import SQLiteInvestigationRepository
+from sentinel.investigation.worker import InvestigationWorker
+from sentinel.telemetry.jaeger import JaegerAdapter
+from sentinel.telemetry.opensearch import OpenSearchAdapter
 from sentinel.telemetry.prometheus import PrometheusAdapter
 from sentinel.telemetry.red_queries import build_red_queries
 from sentinel.telemetry.red_reader import RedMetricsReader
@@ -51,6 +59,42 @@ def main() -> None:
                 if incident is None:
                     parser.exit(1, f"error: incident {arguments.incident_id} not found\n")
                 _print_json(incident)
+        elif arguments.command == "investigations":
+            investigations = SQLiteInvestigationRepository(
+                config.incidents.database_path
+            )
+            store.initialize()
+            investigations.initialize()
+            if arguments.investigations_command == "list":
+                _print_json(investigations.list(arguments.status, arguments.limit))
+            elif arguments.investigations_command == "show":
+                job = investigations.get(arguments.job_id)
+                if job is None:
+                    parser.exit(1, f"error: investigation {arguments.job_id} not found\n")
+                _print_json(
+                    {
+                        "job": job,
+                        "evidence": investigations.list_evidence(arguments.job_id),
+                        "report": investigations.report(arguments.job_id),
+                    }
+                )
+            else:
+                worker = _build_investigation_worker(
+                    investigations, store, config, arguments.config.resolve()
+                )
+                if arguments.investigations_command == "run":
+                    result = worker.run_once(arguments.job_id)
+                    if result is None:
+                        parser.exit(
+                            1,
+                            f"error: investigation {arguments.job_id} is not runnable\n",
+                        )
+                    _print_json(result)
+                elif arguments.investigations_command == "worker":
+                    try:
+                        worker.run_forever()
+                    except KeyboardInterrupt:
+                        print("Sentinel investigator stopped.", file=sys.stderr)
     except (OSError, ValueError, SentinelError) as error:
         parser.exit(1, f"error: {error}\n")
 
@@ -92,6 +136,31 @@ def _parser() -> argparse.ArgumentParser:
     incident_list.add_argument("--limit", type=int, default=100)
     incident_show = incident_commands.add_parser("show", help="show one incident")
     incident_show.add_argument("incident_id")
+
+    investigations = commands.add_parser(
+        "investigations", help="inspect and operate incident investigations"
+    )
+    investigation_commands = investigations.add_subparsers(
+        dest="investigations_command", required=True
+    )
+    investigation_list = investigation_commands.add_parser(
+        "list", help="list investigation jobs"
+    )
+    investigation_list.add_argument(
+        "--status", choices=("pending", "running", "completed", "failed")
+    )
+    investigation_list.add_argument("--limit", type=int, default=100)
+    investigation_show = investigation_commands.add_parser(
+        "show", help="show a job, its evidence, and its report"
+    )
+    investigation_show.add_argument("job_id")
+    investigation_run = investigation_commands.add_parser(
+        "run", help="run or retry one investigation immediately"
+    )
+    investigation_run.add_argument("job_id")
+    investigation_commands.add_parser(
+        "worker", help="run the continuous investigation worker"
+    )
     return parser
 
 
@@ -129,11 +198,16 @@ def _detect(
     once: bool,
 ) -> None:
     store.initialize()
+    investigations = SQLiteInvestigationRepository(config.incidents.database_path)
+    investigations.initialize()
     runner = DetectionRunner(
         PrometheusAlertSource(prometheus),
         store,
         poll_interval_seconds=config.detection.poll_interval_seconds,
         missing_polls_to_resolve=config.detection.missing_polls_to_resolve,
+        investigations=investigations,
+        investigation_quiet_period_seconds=config.investigation.quiet_period_seconds,
+        investigation_max_wait_seconds=config.investigation.max_wait_seconds,
     )
     if once:
         _print_json(runner.run_once())
@@ -142,6 +216,46 @@ def _detect(
         runner.run_forever()
     except KeyboardInterrupt:
         print("Sentinel detection stopped.", file=sys.stderr)
+
+
+def _build_investigation_worker(
+    repository: SQLiteInvestigationRepository,
+    incidents: SQLiteIncidentStore,
+    config: SentinelConfig,
+    config_path: Path,
+) -> InvestigationWorker:
+    evidence = EvidenceService(
+        repository,
+        JaegerAdapter(config.jaeger.base_url, config.jaeger.timeout_seconds),
+        OpenSearchAdapter(
+            config.opensearch.base_url,
+            config.opensearch.index_pattern,
+            config.opensearch.timeout_seconds,
+        ),
+        config.investigation.trace_limit,
+        config.investigation.log_limit,
+    )
+    prompt = (
+        files("sentinel.investigation")
+        .joinpath("prompts/investigator.md")
+        .read_text(encoding="utf-8")
+    )
+    agent = CodexInvestigationAgent(
+        config_path,
+        config.codex.model,
+        config.codex.reasoning_effort,
+        prompt,
+    )
+    return InvestigationWorker(
+        repository,
+        incidents,
+        evidence,
+        InvestigationContextBuilder(),
+        agent,
+        config.investigation.lookback_seconds,
+        config.investigation.lookahead_seconds,
+        config.investigation.worker_poll_interval_seconds,
+    )
 
 
 def _print_json(value: Any) -> None:

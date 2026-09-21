@@ -4,7 +4,8 @@ Sentinel is an automated incident-detection system for distributed applications.
 This first pass monitors operation-level RED signals in Prometheus from both the
 server and client perspectives, consumes firing Prometheus alerts, groups
 concurrent signals around the affected service, and persists incident lifecycles
-in SQLite.
+in SQLite. Its investigation path collects related traces and logs, then gives a
+read-only Codex agent bounded telemetry tools to produce an evidence-cited report.
 
 ## Detection path
 
@@ -28,13 +29,25 @@ affected-service incident grouping
         |
         v
 SQLite incident history
+        |
+        v
+quiet-period investigation job
+        |
+        v
+Jaeger traces + OpenSearch logs
+        |
+        v
+Codex investigator with read-only MCP tools
+        |
+        v
+evidence-cited report
 ```
 
 Prometheus performs the numerical detection. Server signals retain
 `service_name + span_name`. Client signals retain
 `caller service + dependency + span_name`; client failures are grouped around
 the dependency. Sentinel owns alert consumption, grouping, durable incident
-state, and the boundary that a future investigation worker will consume.
+state, telemetry retrieval, agent orchestration, and report validation.
 
 ## Telemetry contract
 
@@ -53,7 +66,8 @@ independent availability or health signal, which is outside this first pass.
 
 ## Local CLI
 
-Sentinel requires Python 3.9 or newer and has no third-party runtime dependencies.
+Sentinel requires Python 3.10 or newer. Investigation uses FastMCP and the Codex
+Python SDK; Codex authentication is configured separately at deployment time.
 
 The `src/` directory is mapped directly to the `sentinel` Python package in
 `pyproject.toml`. This keeps the repository layout flat while preserving normal
@@ -76,6 +90,10 @@ sentinel --config configs/local.json detect --once
 sentinel --config configs/local.json detect
 sentinel --config configs/local.json incidents list
 sentinel --config configs/local.json incidents show INC-XXXXXXXXXXXX
+sentinel --config configs/local.json investigations list
+sentinel --config configs/local.json investigations show JOB-XXXXXXXXXXXX
+sentinel --config configs/local.json investigations run JOB-XXXXXXXXXXXX
+sentinel --config configs/local.json investigations worker
 ```
 
 ## Incident policy
@@ -90,6 +108,22 @@ sentinel --config configs/local.json incidents show INC-XXXXXXXXXXXX
 - A trigger becomes inactive after two successful polls in which it is absent.
 - An incident resolves after all of its triggers become inactive.
 - Failed Prometheus requests never advance incident recovery.
+- A new trigger fingerprint creates or postpones one pending investigation job.
+- Repeated value updates do not postpone the job.
+- Investigation starts after 120 quiet seconds or at a five-minute hard deadline.
+- Late triggers do not automatically restart a completed or running investigation
+  in the MVP.
+
+## Investigation boundary
+
+- Initial context contains the exact alert set at the recorded cutoff, candidate
+  Jaeger traces, trace-correlated logs, and a small warning/error log sample.
+- The model can request more context only through bounded, read-only MCP tools.
+- Every retrieved item receives an evidence ID (`D`, `M`, `T`, or `L`).
+- Reports distinguish observations, hypotheses, and unknowns. Unknown evidence
+  citations are rejected before persistence.
+- One image runs as two processes: the existing `sentinel` detector and the
+  optional `sentinel-investigator` worker. They share the SQLite data volume.
 
 ## OpenTelemetry Demo
 
