@@ -4,7 +4,8 @@ This integration attaches Sentinel to the sibling `opentelemetry-demo` checkout
 without modifying that upstream repository. It replaces the demo Prometheus
 configuration at container runtime, mounts Sentinel's recording and alerting
 rules, enriches client spans with bounded dependency identities, and adds the
-Sentinel detector service to the existing Compose project.
+Sentinel detector plus an optional investigation worker to the existing Compose
+project.
 
 The expected local layout is:
 
@@ -27,6 +28,13 @@ docker compose \
   -f ../Sentinel/integration/otel-demo/compose.sentinel.yaml \
   up --force-recreate --remove-orphans --detach
 ```
+
+The investigator is behind the `investigation` Compose profile so detection can
+run before Codex authentication is configured. Once authentication is ready,
+include `--profile investigation` in the same Compose command. The detector and
+investigator use the same image and share the `sentinel-data` SQLite volume; the
+investigator has a separate persistent `sentinel-codex-home` volume for login
+state.
 
 The Sentinel Prometheus configuration is derived from the demo configuration
 present in the adjacent checkout on September 19, 2026. Compare the files again
