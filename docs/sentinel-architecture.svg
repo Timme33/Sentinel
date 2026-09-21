@@ -1,0 +1,168 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1400" viewBox="0 0 1800 1400" role="img" aria-labelledby="title description">
+  <title id="title">OpenTelemetry and Sentinel architecture</title>
+  <desc id="description">Instrumented OpenTelemetry Demo services send metrics, traces, and logs through the OpenTelemetry Collector to Prometheus, Jaeger, and OpenSearch. Sentinel detects incidents from Prometheus alerts and investigates them with trace and log evidence, a Codex agent, and bounded FastMCP tools.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 z" fill="#e1e5e9"/>
+    </marker>
+    <marker id="arrow-dark" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 z" fill="#20252a"/>
+    </marker>
+    <style>
+      .title { font: 700 28px Arial, Helvetica, sans-serif; fill: #f3f5f7; }
+      .sentinel-title { font: 700 40px Arial, Helvetica, sans-serif; fill: #15191d; }
+      .group-title { font: 700 22px Arial, Helvetica, sans-serif; fill: #f3f5f7; }
+      .group-title-dark { font: 700 22px Arial, Helvetica, sans-serif; fill: #15191d; }
+      .node { font: 600 18px Arial, Helvetica, sans-serif; fill: #f3f5f7; }
+      .small { font: 500 15px Arial, Helvetica, sans-serif; fill: #e1e5e9; }
+      .small-dark { font: 500 15px Arial, Helvetica, sans-serif; fill: #252b31; }
+      .edge { fill: none; stroke: #e1e5e9; stroke-width: 2.5; marker-end: url(#arrow); }
+      .edge-dark { fill: none; stroke: #20252a; stroke-width: 2.5; marker-end: url(#arrow-dark); }
+      .edge-dashed { fill: none; stroke: #e1e5e9; stroke-width: 2.2; stroke-dasharray: 8 7; marker-end: url(#arrow); }
+      .node-box { fill: #222629; stroke: #e1e5e9; stroke-width: 1.5; }
+    </style>
+  </defs>
+
+  <rect width="1800" height="1400" fill="#3e4244"/>
+  <text x="900" y="42" text-anchor="middle" class="title">Telemetry Data Flow with Sentinel</text>
+
+  <!-- Existing application and collection infrastructure -->
+  <rect x="570" y="70" width="660" height="130" fill="none" stroke="#969da3" stroke-width="1.5"/>
+  <text x="900" y="105" text-anchor="middle" class="group-title">OpenTelemetry Demo</text>
+  <rect x="750" y="130" width="300" height="48" rx="4" class="node-box"/>
+  <text x="900" y="161" text-anchor="middle" class="node">Instrumented Microservices</text>
+
+  <path d="M900 178 L900 245" class="edge"/>
+  <text x="920" y="220" class="small">OTLP</text>
+
+  <rect x="430" y="245" width="940" height="92" fill="#2c3740" stroke="#8f9aa4" stroke-width="1.5"/>
+  <text x="900" y="282" text-anchor="middle" class="group-title">OpenTelemetry Collector</text>
+  <text x="900" y="313" text-anchor="middle" class="small">receive · process · route telemetry</text>
+
+  <!-- Collector fan-out -->
+  <path d="M760 337 L760 385 L310 385 L310 430" class="edge"/>
+  <text x="380" y="375" class="small">metrics</text>
+  <path d="M900 337 L900 430" class="edge"/>
+  <text x="920" y="385" class="small">traces</text>
+  <path d="M1040 337 L1040 385 L1490 385 L1490 430" class="edge"/>
+  <text x="1380" y="375" class="small">logs</text>
+
+  <!-- Prometheus -->
+  <rect x="70" y="430" width="480" height="260" fill="#66463d" stroke="#a87968" stroke-width="1.5"/>
+  <text x="310" y="466" text-anchor="middle" class="group-title">Prometheus</text>
+  <rect x="145" y="495" width="330" height="48" rx="4" class="node-box"/>
+  <text x="310" y="526" text-anchor="middle" class="node">OTLP Write Receiver</text>
+  <path d="M310 543 L310 565" class="edge"/>
+  <rect x="145" y="565" width="330" height="48" rx="4" class="node-box"/>
+  <text x="310" y="596" text-anchor="middle" class="node">Prometheus TSDB</text>
+  <path d="M310 613 L310 635" class="edge"/>
+  <rect x="145" y="635" width="330" height="48" rx="4" class="node-box"/>
+  <text x="310" y="666" text-anchor="middle" class="node">Recording + Alert Rules</text>
+
+  <!-- Jaeger -->
+  <rect x="660" y="430" width="480" height="260" fill="#35555d" stroke="#6f929a" stroke-width="1.5"/>
+  <text x="900" y="466" text-anchor="middle" class="group-title">Jaeger</text>
+  <rect x="735" y="495" width="330" height="48" rx="4" class="node-box"/>
+  <text x="900" y="526" text-anchor="middle" class="node">Jaeger Collector</text>
+  <path d="M900 543 L900 565" class="edge"/>
+  <rect x="735" y="565" width="330" height="48" rx="4" class="node-box"/>
+  <text x="900" y="596" text-anchor="middle" class="node">Trace Store</text>
+  <path d="M900 613 L900 635" class="edge"/>
+  <rect x="735" y="635" width="330" height="48" rx="4" class="node-box"/>
+  <text x="900" y="666" text-anchor="middle" class="node">Query API</text>
+
+  <!-- OpenSearch -->
+  <rect x="1250" y="430" width="480" height="260" fill="#334f68" stroke="#6d879d" stroke-width="1.5"/>
+  <text x="1490" y="466" text-anchor="middle" class="group-title">OpenSearch</text>
+  <rect x="1325" y="495" width="330" height="48" rx="4" class="node-box"/>
+  <text x="1490" y="526" text-anchor="middle" class="node">HTTP Receiver</text>
+  <path d="M1490 543 L1490 565" class="edge"/>
+  <rect x="1325" y="565" width="330" height="48" rx="4" class="node-box"/>
+  <text x="1490" y="596" text-anchor="middle" class="node">Log Index</text>
+  <path d="M1490 613 L1490 635" class="edge"/>
+  <rect x="1325" y="635" width="330" height="48" rx="4" class="node-box"/>
+  <text x="1490" y="666" text-anchor="middle" class="node">Search API</text>
+
+  <!-- Sentinel -->
+  <rect x="55" y="760" width="1690" height="590" fill="#8e9fc3" stroke="#c9d1e2" stroke-width="2"/>
+  <text x="90" y="814" class="sentinel-title">Sentinel</text>
+
+  <!-- Detection -->
+  <rect x="95" y="845" width="725" height="355" fill="#79a9ad" stroke="#c8dde0" stroke-width="1.5"/>
+  <text x="125" y="883" class="group-title-dark">Detection</text>
+
+  <rect x="135" y="925" width="185" height="62" rx="4" class="node-box"/>
+  <text x="228" y="951" text-anchor="middle" class="node">Prometheus</text>
+  <text x="228" y="974" text-anchor="middle" class="node">Alert Poller</text>
+  <path d="M320 956 L365 956" class="edge"/>
+  <rect x="365" y="925" width="185" height="62" rx="4" class="node-box"/>
+  <text x="458" y="951" text-anchor="middle" class="node">Signal</text>
+  <text x="458" y="974" text-anchor="middle" class="node">Normalizer</text>
+  <path d="M550 956 L595 956" class="edge"/>
+  <rect x="595" y="925" width="185" height="62" rx="4" class="node-box"/>
+  <text x="688" y="951" text-anchor="middle" class="node">Incident</text>
+  <text x="688" y="974" text-anchor="middle" class="node">Grouping</text>
+
+  <path d="M688 987 L688 1030 L572 1030" class="edge"/>
+  <rect x="345" y="1030" width="310" height="58" rx="4" class="node-box"/>
+  <text x="500" y="1066" text-anchor="middle" class="node">Investigation Job Scheduler</text>
+
+  <path d="M500 1088 L500 1128" class="edge"/>
+  <rect x="235" y="1128" width="530" height="52" rx="4" class="node-box"/>
+  <text x="500" y="1160" text-anchor="middle" class="node">Persist Incident + Investigation Job</text>
+
+  <!-- Investigation -->
+  <rect x="875" y="845" width="830" height="455" fill="#8296c4" stroke="#d0d8e9" stroke-width="1.5"/>
+  <text x="905" y="883" class="group-title-dark">Investigation</text>
+
+  <rect x="915" y="925" width="185" height="62" rx="4" class="node-box"/>
+  <text x="1008" y="951" text-anchor="middle" class="node">Investigation</text>
+  <text x="1008" y="974" text-anchor="middle" class="node">Worker</text>
+  <path d="M1100 956 L1145 956" class="edge"/>
+  <rect x="1145" y="925" width="205" height="62" rx="4" class="node-box"/>
+  <text x="1248" y="951" text-anchor="middle" class="node">Initial Evidence</text>
+  <text x="1248" y="974" text-anchor="middle" class="node">Builder</text>
+  <path d="M1350 956 L1395 956" class="edge"/>
+  <rect x="1395" y="925" width="200" height="62" rx="4" class="node-box"/>
+  <text x="1495" y="951" text-anchor="middle" class="node">Codex</text>
+  <text x="1495" y="974" text-anchor="middle" class="node">Reasoning Agent</text>
+
+  <path d="M1495 987 L1495 1030" class="edge"/>
+  <rect x="1395" y="1030" width="200" height="62" rx="4" class="node-box"/>
+  <text x="1495" y="1056" text-anchor="middle" class="node">FastMCP</text>
+  <text x="1495" y="1079" text-anchor="middle" class="node">Tool Server</text>
+  <path d="M1395 1061 L1350 1061" class="edge"/>
+  <rect x="1115" y="1030" width="235" height="62" rx="4" class="node-box"/>
+  <text x="1233" y="1056" text-anchor="middle" class="node">Jaeger + OpenSearch</text>
+  <text x="1233" y="1079" text-anchor="middle" class="node">Read-only Adapters</text>
+
+  <path d="M1595 956 L1640 956 L1640 1160 L1450 1160" class="edge"/>
+  <rect x="1205" y="1131" width="245" height="58" rx="4" class="node-box"/>
+  <text x="1328" y="1167" text-anchor="middle" class="node">Report Validator</text>
+  <path d="M1328 1189 L1328 1222" class="edge"/>
+  <rect x="1120" y="1222" width="415" height="52" rx="4" class="node-box"/>
+  <text x="1328" y="1254" text-anchor="middle" class="node">Persist Evidence-Cited Report</text>
+
+  <!-- Shared state -->
+  <rect x="445" y="1260" width="650" height="65" rx="4" fill="#d2d8e4" stroke="#495365" stroke-width="1.5"/>
+  <text x="770" y="1287" text-anchor="middle" class="group-title-dark">SQLite State</text>
+  <text x="770" y="1312" text-anchor="middle" class="small-dark">incidents · jobs · evidence · reports</text>
+
+  <!-- Relevant backend connections -->
+  <path d="M310 683 L310 925" class="edge"/>
+  <text x="328" y="735" class="small">firing alerts</text>
+  <path d="M900 683 L900 725 L1195 725 L1195 925" class="edge"/>
+  <text x="925" y="717" class="small">traces</text>
+  <path d="M1490 683 L1490 725 L1295 725 L1295 925" class="edge"/>
+  <text x="1420" y="717" class="small">logs</text>
+
+  <path d="M655 1059 L850 1059 L850 956 L915 956" class="edge"/>
+  <text x="815" y="1048" class="small">job</text>
+  <path d="M500 1180 L500 1260" class="edge"/>
+  <path d="M1008 987 L1008 1260" class="edge"/>
+  <path d="M1328 1274 L1328 1292 L1095 1292" class="edge"/>
+
+  <!-- On-demand tool queries back to telemetry stores -->
+  <path d="M1195 1030 L1195 1010 L900 1010 L900 683" class="edge-dashed"/>
+  <path d="M1270 1030 L1270 1005 L1490 1005 L1490 683" class="edge-dashed"/>
+</svg>

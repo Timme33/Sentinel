@@ -7,6 +7,8 @@ concurrent signals around the affected service, and persists incident lifecycles
 in SQLite. Its investigation path collects related traces and logs, then gives a
 read-only Codex agent bounded telemetry tools to produce an evidence-cited report.
 
+![Sentinel architecture](docs/sentinel-architecture.svg)
+
 ## Detection path
 
 ```text
