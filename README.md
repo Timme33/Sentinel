@@ -1,142 +1,206 @@
 # Sentinel
 
-Sentinel is an automated incident-detection system for distributed applications.
-This first pass monitors operation-level RED signals in Prometheus from both the
-server and client perspectives, consumes firing Prometheus alerts, groups
-concurrent signals around the affected service, and persists incident lifecycles
-in SQLite. Its investigation path collects related traces and logs, then gives a
-read-only Codex agent bounded telemetry tools to produce an evidence-cited report.
+Sentinel is an AIOps system that detects failures in distributed applications and
+automatically investigates them using metrics, traces, and logs.
+
+Modern systems already produce large amounts of telemetry, but finding the
+useful evidence during an incident still requires an engineer to move between
+several tools and connect the signals manually. Existing automated investigation
+products are often proprietary, tied to a specific observability platform, or
+designed as much larger operational suites. There is still no clear, broadly
+adopted open-source solution for this end-to-end workflow across standard
+telemetry backends. Sentinel explores that gap with a focused, inspectable
+system: it turns Prometheus alerts into incidents, retrieves related evidence
+from Jaeger and OpenSearch, and gives a Codex reasoning agent bounded, read-only
+tools for producing an evidence-cited investigation report.
+
+The current implementation integrates with the OpenTelemetry Demo and focuses
+on operation-level failures and service dependency failures.
+
+## What Sentinel does
+
+- Prometheus monitors operation-level RED signals—request rate, error ratio, and
+  p95 latency—and raises alerts for abnormal behavior.
+- Sentinel consumes those alerts and identifies failures inside services as well
+  as dependency failures observed by callers.
+- Related alerts are grouped into durable incidents, which create asynchronous
+  investigation jobs after a short quiet period.
+- The investigation worker collects an initial set of relevant traces and logs,
+  then gives the incident and evidence to a Codex reasoning agent.
+- If more context is needed, Codex requests additional evidence through bounded
+  FastMCP tools backed by read-only telemetry adapters.
+- Sentinel validates the report's evidence citations and stores the incident,
+  job, evidence, and final report.
+
+## Architecture
 
 ![Sentinel architecture](docs/sentinel-architecture.svg)
 
-## Detection path
+Instrumented services send telemetry through the OpenTelemetry Collector.
+Prometheus stores metrics and evaluates Sentinel's detection rules, while Jaeger
+stores traces and OpenSearch stores logs. Sentinel consumes firing alerts,
+groups them into incidents, and schedules asynchronous investigations. The
+investigation worker gathers initial evidence and invokes Codex, which can use
+read-only tools to retrieve more context before producing its report.
+
+## Components
+
+### Detection
+
+Prometheus converts span metrics into operation-level RED signals. Server-side
+signals retain the service and operation names. Client-side signals also retain
+the dependency being called, allowing Sentinel to detect a service that has
+stopped producing its own telemetry but is still failing from a caller's point
+of view.
+
+PromQL alert rules combine high safety thresholds with rolling baselines. The
+Sentinel detector polls only alerts labeled `sentinel="true"` and converts each
+one into a consistent internal alert record.
+
+### Incidents and investigation jobs
+
+Sentinel groups active alert records around the affected service. Repeated polls
+update an existing trigger rather than creating duplicates, and an incident is
+resolved after all of its triggers become inactive.
+
+When an incident gains a new trigger, Sentinel creates or postpones one durable
+investigation job. A short quiet period gives related alerts time to join the
+incident before investigation begins, while a maximum wait prevents indefinite
+delay.
+
+### Evidence collection
+
+The investigation worker builds an initial evidence set from the exact alerts
+attached to the job. Through read-only adapters, it queries Jaeger for relevant
+traces, follows trace IDs into OpenSearch, and adds a bounded sample of nearby
+warning and error logs. Every saved item receives an evidence ID that can be
+cited in the final report.
+
+### Agent investigation
+
+Codex receives the incident and initial evidence as structured context. If that
+context is insufficient, it can call FastMCP tools to search bounded time ranges
+for additional traces and logs. The tools use the same read-only Jaeger and
+OpenSearch adapters as initial evidence collection; the agent never receives
+shell access or unrestricted access to the monitored application.
+
+Before persistence, Sentinel validates that the report separates observations,
+hypotheses, and unknowns and that every cited evidence ID actually exists.
+
+### State and deployment
+
+SQLite stores incident lifecycles, investigation jobs, retrieved evidence, and
+reports. The detector and investigator run as separate processes from the same
+Sentinel image and share the same data volume. This keeps detection running
+independently while investigations execute asynchronously.
+
+The OpenTelemetry Demo integration lives in
+[integration/otel-demo](integration/otel-demo/README.md). It adds Sentinel and
+its telemetry configuration without modifying the adjacent upstream demo
+checkout.
+
+## Running locally
+
+### Prerequisites
+
+- Docker Desktop with Docker Compose v2
+- An adjacent checkout of the OpenTelemetry Demo
+
+The expected directory layout is:
 
 ```text
-OpenTelemetry Demo
-        |
-        v
-Prometheus span metrics
-        |
-        v
-server-operation and client-dependency RED recording rules
-        |
-        v
-fixed and rolling PromQL alerts
-        |
-        v
-Sentinel Prometheus alert source
-        |
-        v
-affected-service incident grouping
-        |
-        v
-SQLite incident history
-        |
-        v
-quiet-period investigation job
-        |
-        v
-Jaeger traces + OpenSearch logs
-        |
-        v
-Codex investigator with read-only MCP tools
-        |
-        v
-evidence-cited report
+AIOps_project/
+├── opentelemetry-demo/
+└── Sentinel/
 ```
 
-Prometheus performs the numerical detection. Server signals retain
-`service_name + span_name`. Client signals retain
-`caller service + dependency + span_name`; client failures are grouped around
-the dependency. Sentinel owns alert consumption, grouping, durable incident
-state, telemetry retrieval, agent orchestration, and report validation.
+From the `opentelemetry-demo` directory, start the demo and Sentinel detector
+as one Compose project:
 
-## Telemetry contract
+```bash
+docker compose \
+  --env-file .env \
+  --env-file .env.override \
+  -f compose.yaml \
+  -f compose.observability.yaml \
+  -f compose.extras.yaml \
+  -f ../Sentinel/integration/otel-demo/compose.sentinel.yaml \
+  up --force-recreate --remove-orphans --detach
+```
 
-Detection quality is bounded by the coverage and granularity of the input
-telemetry. Sentinel intentionally keeps operation identity instead of reducing
-all traffic to one service-wide ratio. Its OTel Demo integration adds a bounded
-`sentinel.dependency.name` dimension to known client spans and caps span-metric
-cardinality at 10,000 combinations. Unknown or dynamic destinations are not
-guessed from raw addresses.
+To also start the asynchronous investigation worker, add
+`--profile investigation` before `up`. The worker uses the same Sentinel image
+and SQLite volume as the detector and maintains a separate volume for Codex
+authentication.
 
-Service-wide views remain derivable from the raw counters and histograms, but
-they are not the primary detection scope. An unavailable service may emit no
-server spans at all, so client dependency failures supply the caller's view of
-an unreachable service. A service with no incoming traffic still requires an
-independent availability or health signal, which is outside this first pass.
+### Inspecting Sentinel
 
-## Local CLI
+The CLI is available inside the running Sentinel containers:
 
-Sentinel requires Python 3.10 or newer. Investigation uses FastMCP and the Codex
-Python SDK; Codex authentication is configured separately at deployment time.
+```bash
+# Verify Prometheus connectivity and Sentinel's configuration
+docker exec sentinel sentinel --config /etc/sentinel/config.json check
 
-The `src/` directory is mapped directly to the `sentinel` Python package in
-`pyproject.toml`. This keeps the repository layout flat while preserving normal
-imports such as `from sentinel.telemetry import PrometheusAdapter`.
+# View current operation-level RED metrics
+docker exec sentinel sentinel --config /etc/sentinel/config.json metrics snapshot
+
+# View firing alerts and grouped incidents
+docker exec sentinel sentinel --config /etc/sentinel/config.json alerts list
+docker exec sentinel sentinel --config /etc/sentinel/config.json incidents list
+
+# View investigation jobs, retrieved evidence, and reports
+docker exec sentinel sentinel --config /etc/sentinel/config.json investigations list
+docker exec sentinel sentinel --config /etc/sentinel/config.json investigations show JOB_ID
+```
+
+For local Python development:
 
 ```bash
 cp configs/local.example.json configs/local.json
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e .
-```
-
-Available commands:
-
-```bash
-sentinel --config configs/local.json check
-sentinel --config configs/local.json metrics snapshot
-sentinel --config configs/local.json alerts list
-sentinel --config configs/local.json detect --once
-sentinel --config configs/local.json detect
-sentinel --config configs/local.json incidents list
-sentinel --config configs/local.json incidents show INC-XXXXXXXXXXXX
-sentinel --config configs/local.json investigations list
-sentinel --config configs/local.json investigations show JOB-XXXXXXXXXXXX
-sentinel --config configs/local.json investigations run JOB-XXXXXXXXXXXX
-sentinel --config configs/local.json investigations worker
-```
-
-## Incident policy
-
-- Only firing Prometheus alerts labeled `sentinel="true"` enter Sentinel.
-- Multiple active signals for one affected service belong to one open incident.
-- Server-operation alerts identify the server service as affected.
-- Client-dependency alerts identify the dependency as affected while retaining
-  the caller and operation in the trigger labels.
-- Different services remain separate incidents in this first pass.
-- Repeated polls update existing triggers instead of creating duplicates.
-- A trigger becomes inactive after two successful polls in which it is absent.
-- An incident resolves after all of its triggers become inactive.
-- Failed Prometheus requests never advance incident recovery.
-- A new trigger fingerprint creates or postpones one pending investigation job.
-- Repeated value updates do not postpone the job.
-- Investigation starts after 120 quiet seconds or at a five-minute hard deadline.
-- Late triggers do not automatically restart a completed or running investigation
-  in the MVP.
-
-## Investigation boundary
-
-- Initial context contains the exact alert set at the recorded cutoff, candidate
-  Jaeger traces, trace-correlated logs, and a small warning/error log sample.
-- The model can request more context only through bounded, read-only MCP tools.
-- Every retrieved item receives an evidence ID (`D`, `M`, `T`, or `L`).
-- Reports distinguish observations, hypotheses, and unknowns. Unknown evidence
-  citations are rejected before persistence.
-- One image runs as two processes: the existing `sentinel` detector and the
-  optional `sentinel-investigator` worker. They share the SQLite data volume.
-
-## OpenTelemetry Demo
-
-The integration files are stored in
-[`integration/otel-demo`](integration/otel-demo/README.md). They leave the
-adjacent upstream demo checkout unchanged while mounting Sentinel's Prometheus
-configuration and rules and adding the Sentinel service through a Compose
-override.
-
-## Tests
-
-```bash
 python -m unittest discover -s tests -v
 ```
+
+## Current status
+
+Sentinel currently includes:
+
+- OpenTelemetry Demo integration through a Compose override
+- Operation-level server and client-dependency RED metrics
+- Fixed-threshold and rolling-baseline Prometheus alerts
+- Alert polling, incident grouping, recovery tracking, and durable SQLite state
+- Quiet-period investigation scheduling
+- Bounded Jaeger and OpenSearch adapters
+- Initial evidence collection and trace-to-log correlation
+- A FastMCP telemetry tool server and Codex investigation worker
+- Evidence-citation validation and report persistence
+- Unit tests for detection, incidents, telemetry adapters, evidence collection,
+  investigation jobs, workers, and report validation
+
+## Known limitations
+
+- Detection and investigation quality are limited by the coverage, labels, and
+  accuracy of the available telemetry.
+- The current Prometheus rules and dependency mappings are configured for the
+  OpenTelemetry Demo rather than discovered automatically.
+- Rolling mean and standard-deviation alerts provide a simple adaptive baseline,
+  not a complete time-series anomaly-detection model.
+- Incident grouping currently centers on the affected service and may combine
+  related-looking failures or separate parts of a larger incident.
+- Sentinel identifies likely failing services and operations from telemetry; it
+  does not claim source-code-level root causes without supporting evidence.
+- SQLite and the local Compose deployment are intended for a single-node first
+  version, not a highly available production deployment.
+
+## Next steps
+
+- Evaluate detection delay, false-alert rate, and investigation quality across
+  repeatable injected-fault scenarios.
+- Compare the current PromQL baselines with stronger time-series detection
+  methods.
+- Improve incident correlation using service dependencies and temporal
+  relationships between alerts.
+- Add deployment and change-event context to investigations.
+- Generalize telemetry configuration and add adapters for additional backends.
